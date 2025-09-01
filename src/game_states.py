@@ -5,8 +5,8 @@ Gerenciamento dos estados do jogo
 
 import pygame
 import os
-from .config import MENU, CINEMATICA, JOGANDO, GAME_OVER, TELA_LARGURA, TELA_ALTURA
-from .ui.hud import desenhar_tela_abertura, desenhar_tela_gameover, desenhar_hud_jogo, desenhar_tela_cinematic
+from .config import MENU, CINEMATICA, JOGANDO, GAME_OVER, POWERUP_HELP, TELA_LARGURA, TELA_ALTURA
+from .ui.hud import desenhar_tela_abertura, desenhar_tela_gameover, desenhar_hud_jogo, desenhar_tela_cinematic, desenhar_tela_powerup_help
 from .managers.collision import check_collision
 from .managers.record import RecordManager
 from .managers.cinematic import CinematicManager
@@ -51,8 +51,11 @@ class GameStateManager:
             if e.type == pygame.QUIT:
                 return False  # Sinaliza para sair do jogo
             
-            if self.estado == MENU and e.type == pygame.KEYDOWN and e.key == pygame.K_SPACE:
-                self.iniciar_cinematic()
+            if self.estado == MENU and e.type == pygame.KEYDOWN:
+                if e.key == pygame.K_SPACE:
+                    self.iniciar_cinematic()
+                elif e.key == pygame.K_h:
+                    self.mostrar_ajuda_powerups()
                 
             elif self.estado == CINEMATICA and e.type == pygame.KEYDOWN and e.key == pygame.K_SPACE:
                 self.pular_cinematic()
@@ -63,6 +66,14 @@ class GameStateManager:
             # Controles da playlist durante o jogo
             elif self.estado == JOGANDO and e.type == pygame.KEYDOWN:
                 self._processar_controles_playlist(e)
+                
+                # Tecla H para mostrar ajuda dos power-ups
+                if e.key == pygame.K_h:
+                    self.mostrar_ajuda_powerups()
+                    
+            # Voltar do menu de ajuda dos power-ups
+            elif self.estado == POWERUP_HELP and e.type == pygame.KEYDOWN and e.key == pygame.K_h:
+                self.voltar_do_ajuda_powerups()
         
         return True  # Continua o jogo
     
@@ -228,7 +239,7 @@ class GameStateManager:
             self.novo_record_atingido = False
             print(f"📊 Pontuação: {pontuacao_final} | Record: {self.record_manager.obter_record()}")
     
-    def desenhar(self, pontuacao=0, obstaculos=None):
+    def desenhar(self, pontuacao=0, obstaculos=None, powerup_manager=None):
         """Desenha o estado atual"""
         if self.estado == MENU:
             desenhar_tela_abertura(self.tela, self.img_abertura)
@@ -236,7 +247,9 @@ class GameStateManager:
             desenhar_tela_cinematic(self.tela, self.cinematic_manager)
         elif self.estado == JOGANDO:
             if obstaculos:
-                desenhar_hud_jogo(self.tela, pontuacao, obstaculos, self.playlist_manager, self.record_manager, self)
+                desenhar_hud_jogo(self.tela, pontuacao, obstaculos, self.playlist_manager, self.record_manager, powerup_manager, self)
+        elif self.estado == POWERUP_HELP:
+            desenhar_tela_powerup_help(self.tela)
         elif self.estado == GAME_OVER:
             # Usa a pontuação final armazenada no game over
             pontuacao_final = getattr(self, 'pontuacao_final', 0)
@@ -246,6 +259,21 @@ class GameStateManager:
         """Atualiza o gerenciador de playlist"""
         if self.estado == JOGANDO:
             self.playlist_manager.atualizar(dt)
+    
+    def mostrar_ajuda_powerups(self):
+        """Mostra a tela de ajuda dos power-ups"""
+        self.estado_anterior = self.estado
+        self.estado = POWERUP_HELP
+        print("📖 Mostrando ajuda dos power-ups")
+    
+    def voltar_do_ajuda_powerups(self):
+        """Volta do menu de ajuda dos power-ups para o estado anterior"""
+        # Se estava no menu, volta para o menu. Se estava jogando, volta para o jogo
+        if hasattr(self, 'estado_anterior'):
+            self.estado = self.estado_anterior
+        else:
+            self.estado = MENU
+        print("🎮 Voltando ao estado anterior")
     
     def gerenciar_musica_jogo(self):
         """Gerencia a música durante o jogo"""

@@ -14,7 +14,9 @@ from src.config import *
 from src.utils.road_detection import detect_asphalt_bounds
 from src.entities.player import CarroJogador
 from src.entities.obstacles import Obstaculo
+from src.entities.powerup import PowerUp, PowerUpManager
 from src.managers.playlist import PlaylistManager
+from src.managers.collision import check_collision_with_powerup
 from src.game_states import GameStateManager
 
 
@@ -29,6 +31,7 @@ def main():
     trilha_abertura = os.path.join("assets", "sounds", "abertura.mp3")
     if os.path.exists(trilha_abertura):
         pygame.mixer.music.load(trilha_abertura)
+        pygame.mixer.music.set_volume(0.2)  # Volume inicial em 20%
         pygame.mixer.music.play(-1)
 
     # Sprites
@@ -52,8 +55,11 @@ def main():
     carro = CarroJogador(img_carro_jogador, inner_x, inner_w, lane_w)
 
     obstaculos = []
+    powerups = []
     spawn_timer = 0.0
+    powerup_spawn_timer = 0.0
     spawn_interval = 0.7
+    powerup_spawn_interval = 2.0  # Power-ups aparecem a cada 2 segundos
     vel_obst = OBST_VEL_INICIAL
     pontuacao = 0
     dificuldade = 1
@@ -62,6 +68,7 @@ def main():
 
     # Gerenciadores
     playlist_manager = PlaylistManager()
+    powerup_manager = PowerUpManager()
     game_state = GameStateManager(tela, playlist_manager)
     
     # Debug: verifica se a playlist foi carregada
@@ -87,6 +94,7 @@ def main():
             # Toca música de abertura apenas se não estiver tocando
             if not pygame.mixer.music.get_busy() and os.path.exists(trilha_abertura):
                 pygame.mixer.music.load(trilha_abertura)
+                pygame.mixer.music.set_volume(0.2)  # Volume inicial em 20%
                 pygame.mixer.music.play(-1)
                 print("🎵 Tocando música de abertura")
 
@@ -126,7 +134,7 @@ def main():
             carro.mover(teclas, dt)
             carro.desenhar(tela)
 
-            # Spawns (tempo real) - MANTÉM DENSIDADE CONSTANTE
+            # Spawns de obstáculos (tempo real) - MANTÉM DENSIDADE CONSTANTE
             spawn_timer += dt
             if spawn_timer >= spawn_interval:
                 obstaculos.append(Obstaculo(vel_obst, lane_centers, lane_w))
@@ -134,7 +142,22 @@ def main():
                 # Ajusta intervalo para manter densidade constante
                 # Quanto mais rápido os carros, mais frequentemente devem spawnar
                 spawn_interval = max(0.2, 0.7 * (OBST_VEL_INICIAL / vel_obst))
+            
+            # Spawns de power-ups
+            powerup_spawn_timer += dt
+            if powerup_spawn_timer >= powerup_spawn_interval:
+                if random.random() < POWERUP_SPAWN_CHANCE:
+                    # Escolhe tipo aleatório de power-up
+                    tipo_powerup = random.choice(list(POWERUP_TIPOS.keys()))
+                    powerups.append(PowerUp(tipo_powerup, lane_centers, lane_w))
+                powerup_spawn_timer = 0.0
 
+            # Atualiza power-ups ativos
+            powerup_manager.atualizar(dt)
+            
+            # Aplica efeitos dos power-ups ativos
+            efeitos = powerup_manager.get_efeitos_atuais()
+            
             # Obstáculos + colisão
             for obst in obstaculos[:]:
                 # Atualiza posição do jogador para polícia inteligente
@@ -142,12 +165,16 @@ def main():
                     obst.atualizar_posicao_jogador(carro.x + carro.largura // 2)
                     obst.dificuldade_jogo = dificuldade
                 
-                obst.mover(dt)
+                # Aplica efeito de câmera lenta aos obstáculos
+                velocidade_efetiva = vel_obst * efeitos['velocidade_obstaculos_mult']
+                obst.mover(dt, velocidade_efetiva)
                 obst.desenhar(tela)
 
                 if obst.fora_da_tela():
                     obstaculos.remove(obst)
-                    pontuacao += 1
+                    # Aplica multiplicador de pontos
+                    pontos_ganhos = int(1 * efeitos['pontos_mult'])
+                    pontuacao += pontos_ganhos
                     if pontuacao % 10 == 0:
                         dificuldade += 1
                         vel_obst += 40  # aumento mais perceptível
@@ -163,13 +190,44 @@ def main():
                         #     playlist_manager.definir_volume(novo_volume)
                     continue
 
-            # Verifica colisão
-            if game_state.verificar_colisao(carro, obstaculos, pontuacao):
+            # Power-ups
+            for powerup in powerups[:]:
+                powerup.mover(dt)
+                powerup.desenhar(tela)
+                
+                # Verifica colisão com power-up
+                if check_collision_with_powerup(carro, powerup):
+                    powerup_manager.adicionar_powerup(powerup.tipo)
+                    powerups.remove(powerup)
+                    continue
+                
+                # Efeito do ímã - atrai power-ups próximos
+                if efeitos['raio_imã'] > 0:
+                    distancia = ((carro.x - powerup.x)**2 + (carro.y - powerup.y)**2)**0.5
+                    if distancia <= efeitos['raio_imã']:
+                        # Move power-up em direção ao jogador
+                        dx = carro.x - powerup.x
+                        dy = carro.y - powerup.y
+                        if abs(dx) > 5:  # Evita oscilação
+                            powerup.x += dx * 0.1
+                        if abs(dy) > 5:
+                            powerup.y += dy * 0.1
+                
+                if not powerup.esta_na_tela():
+                    powerups.remove(powerup)
+                    continue
+
+            # Verifica colisão (ignora se tiver imunidade)
+            if not efeitos['imunidade_colisao'] and game_state.verificar_colisao(carro, obstaculos, pontuacao):
                 # Reseta variáveis do jogo
                 carro = CarroJogador(img_carro_jogador, inner_x, inner_w, lane_w)
                 obstaculos.clear()
+                powerups.clear()
+                powerup_manager.limpar_todos()
                 spawn_timer = 0.0
+                powerup_spawn_timer = 0.0
                 spawn_interval = 0.7
+                powerup_spawn_interval = 2.0
                 vel_obst = OBST_VEL_INICIAL
                 pontuacao = 0
                 dificuldade = 1
@@ -177,7 +235,7 @@ def main():
                 road_speed = 200.0
 
         # Desenha interface baseada no estado
-        game_state.desenhar(pontuacao, obstaculos if estado == JOGANDO else None)
+        game_state.desenhar(pontuacao, obstaculos if estado == JOGANDO else None, powerup_manager if estado == JOGANDO else None)
         
         # Atualiza playlist
         game_state.atualizar_playlist(dt)

@@ -84,8 +84,10 @@ class Obstaculo:
             self.target_lane_x = self.x
             self.moving_lateral = False
 
-    def mover(self, dt):
-        self.y += self.vel * dt
+    def mover(self, dt, velocidade_personalizada=None):
+        # Usa velocidade personalizada se fornecida, senão usa a velocidade padrão
+        vel_efetiva = velocidade_personalizada if velocidade_personalizada is not None else self.vel
+        self.y += vel_efetiva * dt
         
         # Movimento lateral especial para polícia
         if self.eh_policia:
