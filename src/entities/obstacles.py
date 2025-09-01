@@ -9,7 +9,7 @@ import pygame
 from ..config import (
     OBST_ALTURA, LANE_MARGIN, ALPHA_THRESHOLD, SHOW_HITBOX_DEBUG,
     POLICE_SPAWN_CHANCE, POLICE_LATERAL_SPEED, POLICE_LANE_CHANGE_INTERVAL,
-    POLICE_AGGRESSIVE_MODE
+    POLICE_AGGRESSIVE_MODE, OBST_VEL_INICIAL
 )
 from .police import SireneAnimacao
 from ..managers.collision import create_hit_rect
@@ -128,18 +128,28 @@ class Obstaculo:
         """Movimento lateral especial da polícia para tentar bloquear o jogador"""
         self.lane_change_timer += dt
         
-        # Ajusta intervalo baseado na dificuldade (se ativado)
+        # Ajusta intervalo baseado na dificuldade e velocidade
         intervalo_atual = POLICE_LANE_CHANGE_INTERVAL
         if POLICE_AGGRESSIVE_MODE and hasattr(self, 'dificuldade_jogo'):
             # Reduz o intervalo conforme a dificuldade aumenta
-            intervalo_atual = max(0.5, POLICE_LANE_CHANGE_INTERVAL - (self.dificuldade_jogo - 1) * 0.1)
+            intervalo_atual = max(0.3, POLICE_LANE_CHANGE_INTERVAL - (self.dificuldade_jogo - 1) * 0.15)
+        
+        # Ajusta intervalo baseado na velocidade do jogo
+        # Quanto mais rápido, mais frequentemente deve tentar manobrar
+        velocidade_ratio = self.vel / OBST_VEL_INICIAL
+        intervalo_atual = max(0.2, intervalo_atual / velocidade_ratio)
         
         # Decide se deve mudar de faixa
         if self.lane_change_timer >= intervalo_atual:
             self.lane_change_timer = 0.0
             
             # Comportamento inteligente: tenta bloquear o jogador se estiver próximo
-            if hasattr(self, 'jogador_x') and self.y > 720 * 0.3:  # 720 é TELA_ALTURA
+            # Ativa mais cedo em velocidades altas
+            altura_ativacao = 720 * 0.5  # 50% da tela (era 30%)
+            if velocidade_ratio > 2.0:  # Se velocidade > 2x a inicial
+                altura_ativacao = 720 * 0.7  # Ativa ainda mais cedo (70% da tela)
+            
+            if hasattr(self, 'jogador_x') and self.y > altura_ativacao:
                 # Tenta se posicionar na faixa do jogador
                 faixa_jogador = self._detectar_faixa_jogador()
                 if faixa_jogador != self.current_lane:
@@ -161,7 +171,12 @@ class Obstaculo:
         
         # Move lateralmente se estiver mudando de faixa
         if self.moving_lateral:
-            dx = POLICE_LATERAL_SPEED * dt
+            # Ajusta velocidade lateral baseado na velocidade do jogo
+            velocidade_lateral = POLICE_LATERAL_SPEED
+            if velocidade_ratio > 1.5:  # Se velocidade > 1.5x a inicial
+                velocidade_lateral = POLICE_LATERAL_SPEED * velocidade_ratio
+            
+            dx = velocidade_lateral * dt
             if abs(self.x - self.target_lane_x) < dx:
                 self.x = self.target_lane_x
                 self.moving_lateral = False

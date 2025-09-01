@@ -90,6 +90,10 @@ def main():
                 pygame.mixer.music.play(-1)
                 print("🎵 Tocando música de abertura")
 
+        elif estado == CINEMATICA:
+            # Atualiza cinemática
+            game_state.atualizar_cinematic(dt)
+
         elif estado == JOGANDO:
             # Para trilha do menu apenas uma vez e inicia playlist do jogo
             if not hasattr(game_state, '_musica_abertura_parada'):
@@ -122,12 +126,14 @@ def main():
             carro.mover(teclas, dt)
             carro.desenhar(tela)
 
-            # Spawns (tempo real)
+            # Spawns (tempo real) - MANTÉM DENSIDADE CONSTANTE
             spawn_timer += dt
             if spawn_timer >= spawn_interval:
                 obstaculos.append(Obstaculo(vel_obst, lane_centers, lane_w))
                 spawn_timer = 0.0
-                spawn_interval = max(0.35, spawn_interval - 0.02)  # mais agressivo
+                # Ajusta intervalo para manter densidade constante
+                # Quanto mais rápido os carros, mais frequentemente devem spawnar
+                spawn_interval = max(0.2, 0.7 * (OBST_VEL_INICIAL / vel_obst))
 
             # Obstáculos + colisão
             for obst in obstaculos[:]:
@@ -146,10 +152,15 @@ def main():
                         dificuldade += 1
                         vel_obst += 40  # aumento mais perceptível
                         
+                        # ATUALIZA A VELOCIDADE DE TODOS OS OBSTÁCULOS EXISTENTES
+                        for obst_existente in obstaculos:
+                            obst_existente.vel = vel_obst
+                        
                         # Ajusta volume da playlist baseado na dificuldade
-                        if PLAYLIST_AGGRESSIVE_MODE:
-                            novo_volume = min(1.0, PLAYLIST_VOLUME + (dificuldade - 1) * 0.05)
-                            playlist_manager.definir_volume(novo_volume)
+                        # VOLUME AGRESSIVO DESATIVADO - Usuário tem controle total
+                        # if PLAYLIST_AGGRESSIVE_MODE and not game_state.mute_ativo and not game_state.volume_ajustado_manualmente:
+                        #     novo_volume = min(1.0, PLAYLIST_VOLUME + (dificuldade - 1) * 0.05)
+                        #     playlist_manager.definir_volume(novo_volume)
                     continue
 
             # Verifica colisão
@@ -170,7 +181,7 @@ def main():
         
         # Atualiza playlist
         game_state.atualizar_playlist(dt)
-
+        
         pygame.display.flip()
         clock.tick(FPS)
 
@@ -178,5 +189,5 @@ def main():
     sys.exit()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main() 

@@ -10,8 +10,9 @@ FPS = 60
 
 # Estados do jogo
 MENU = 0
-JOGANDO = 1
-GAME_OVER = 2
+CINEMATICA = 1  # Novo estado para cinemática
+JOGANDO = 2
+GAME_OVER = 3
 
 # -------------------- Configurações dos Carros --------------------
 CARRO_VEL = 380  # px/s
@@ -47,4 +48,7 @@ POLICE_AGGRESSIVE_MODE = True  # ativa modo agressivo que aumenta com dificuldad
 # -------------------- Configurações da Playlist --------------------
 PLAYLIST_VOLUME = 0.7  # volume das músicas da playlist (0.0 a 1.0)
 PLAYLIST_FADE_TIME = 1.0  # tempo de fade entre músicas (segundos)
-PLAYLIST_AGGRESSIVE_MODE = True  # aumenta volume conforme dificuldade 
+PLAYLIST_AGGRESSIVE_MODE = False  # volume agressivo DESATIVADO - usuário tem controle total
+
+# -------------------- Configurações do Record --------------------
+RECORD_FILE = "record.txt"  # arquivo para salvar o record 

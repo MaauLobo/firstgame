@@ -19,6 +19,8 @@ class PlaylistManager:
         self.fade_timer = 0.0
         self.fade_duration = PLAYLIST_FADE_TIME
         self.fade_out = False
+        self.mute_ativo = False  # Flag para controlar mute
+        self.pausado = False  # Flag para controlar pausa
         
         self.carregar_playlist()
     
@@ -59,8 +61,11 @@ class PlaylistManager:
         
         try:
             pygame.mixer.music.load(self.musica_atual)
-            pygame.mixer.music.set_volume(self.volume)
+            # Aplica volume considerando mute
+            volume_aplicar = 0.0 if self.mute_ativo else self.volume
+            pygame.mixer.music.set_volume(volume_aplicar)
             pygame.mixer.music.play()
+            self.pausado = False  # Reseta flag de pausa
             print(f"✅ Tocando próxima: {os.path.basename(self.musica_atual)}")
         except Exception as e:
             print(f"❌ Erro ao tocar música: {e}")
@@ -82,9 +87,12 @@ class PlaylistManager:
         
         try:
             pygame.mixer.music.load(musica_aleatoria)
-            pygame.mixer.music.set_volume(self.volume)
+            # Aplica volume considerando mute
+            volume_aplicar = 0.0 if self.mute_ativo else self.volume
+            pygame.mixer.music.set_volume(volume_aplicar)
             pygame.mixer.music.play()
             self.musica_atual = musica_aleatoria
+            self.pausado = False  # Reseta flag de pausa
             print(f"✅ Tocando aleatória: {os.path.basename(musica_aleatoria)}")
         except Exception as e:
             print(f"❌ Erro ao tocar música: {e}")
@@ -115,13 +123,41 @@ class PlaylistManager:
     def definir_volume(self, volume):
         """Define o volume da playlist (0.0 a 1.0)"""
         self.volume = max(0.0, min(1.0, volume))
+        # Só aplica o volume se não estiver mutado
+        if pygame.mixer.music.get_busy() and not self.mute_ativo:
+            pygame.mixer.music.set_volume(self.volume)
+    
+    def ativar_mute(self):
+        """Ativa o mute"""
+        self.mute_ativo = True
+        if pygame.mixer.music.get_busy():
+            pygame.mixer.music.set_volume(0.0)
+    
+    def desativar_mute(self):
+        """Desativa o mute"""
+        self.mute_ativo = False
         if pygame.mixer.music.get_busy():
             pygame.mixer.music.set_volume(self.volume)
     
     def pausar(self):
         """Pausa a música atual"""
-        pygame.mixer.music.pause()
+        print(f"🔍 Tentando pausar - Status: pausado={self.pausado}, tocando={pygame.mixer.music.get_busy()}")
+        if pygame.mixer.music.get_busy() and not self.pausado:
+            pygame.mixer.music.pause()
+            self.pausado = True
+            print("⏸️ Música pausada com sucesso")
+        else:
+            if self.pausado:
+                print("⚠️ Música já está pausada")
+            else:
+                print("⚠️ Música não está tocando")
     
     def despausar(self):
         """Despausa a música atual"""
-        pygame.mixer.music.unpause() 
+        print(f"🔍 Tentando despausar - Status: pausado={self.pausado}")
+        if self.pausado:
+            pygame.mixer.music.unpause()
+            self.pausado = False
+            print("▶️ Música despausada com sucesso")
+        else:
+            print("⚠️ Música não está pausada") 
