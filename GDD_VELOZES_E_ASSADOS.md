@@ -350,7 +350,6 @@ firstgame/
 - [x] Sistema de colisão otimizado
 
 ### **Fase 2 (Próximas 2-4 semanas)**
-- [ ] Sistema de power-ups básico
 - [ ] Novos tipos de obstáculos
 - [ ] Efeitos sonoros adicionais
 - [ ] Sistema de conquistas simples
@@ -367,26 +366,7 @@ firstgame/
 - [ ] Sistema de ranking
 - [ ] Modo torneio
 
----
 
-## 📞 **CONTATO E SUPORTE**
-
-### **Desenvolvedor**
-- **Nome**: [NOME_DO_DESENVOLVEDOR]
-- **Email**: [EMAIL]
-- **GitHub**: [LINK_DO_GITHUB]
-
-### **Documentação**
-- **Arquitetura**: `ARQUITETURA.md`
-- **README**: `README.md`
-- **GDD**: Este documento
-
-### **Repositório**
-- **URL**: [LINK_DO_REPOSITORIO]
-- **Licença**: [TIPO_DE_LICENÇA]
-- **Versão**: 1.0.0
-
----
 
 ## 📋 **CHECKLIST DE IMPLEMENTAÇÃO**
 
@@ -403,6 +383,7 @@ firstgame/
 - [x] Playlist dinâmica
 - [x] IA da polícia
 - [x] Interface do usuário
+- [x] Sistema de Power-Ups
 
 ### **Qualidade**
 - [x] Arquitetura modular
@@ -415,6 +396,6 @@ firstgame/
 
 **🎉 Este GDD representa a documentação completa do jogo "Velozes e Assados" e deve ser atualizado conforme o desenvolvimento avança.**
 
-**📅 Última Atualização**: [DATA]
+**📅 Última Atualização**: [01/09/2025]
 **📝 Versão do Documento**: 1.0
-**👨‍💻 Preparado por**: [NOME_DO_DESENVOLVEDOR] 
+**👨‍💻 Preparado por**: [Mauricio Lobo Lima] 
