@@ -7,6 +7,10 @@ import os
 import pygame
 import cv2
 import numpy as np
+import subprocess
+import tempfile
+import wave
+import struct
 from ..config import TELA_LARGURA, TELA_ALTURA
 
 
@@ -21,6 +25,8 @@ class CinematicManager:
         self.frame_delay = 1.0 / self.fps
         self.frame_timer = 0.0
         self.current_frame = None
+        self.audio_path = None
+        self.audio_extracted = False
         
         # Verifica se o arquivo existe
         if not os.path.exists(self.video_path):
@@ -30,6 +36,18 @@ class CinematicManager:
         else:
             print(f"✅ Cinemática carregada: {self.video_path}")
             self.available = True
+            
+            # Verifica se existe um arquivo de áudio separado
+            video_dir = os.path.dirname(self.video_path)
+            video_name = os.path.splitext(os.path.basename(self.video_path))[0]
+            self.separate_audio_path = os.path.join(video_dir, f"{video_name}.wav")
+            
+            if os.path.exists(self.separate_audio_path):
+                print(f"🎵 Arquivo de áudio separado encontrado: {self.separate_audio_path}")
+                self.has_separate_audio = True
+            else:
+                print("🔇 Nenhum arquivo de áudio separado encontrado")
+                self.has_separate_audio = False
     
     def iniciar_cinematic(self):
         """Inicia a reprodução da cinemática"""
@@ -66,6 +84,10 @@ class CinematicManager:
             self.finished = False
             
             print(f"🎬 Iniciando cinemática - FPS: {self.fps}")
+            
+            # Extrai o áudio do vídeo se disponível
+            self._extrair_audio()
+            
             return True
             
         except Exception as e:
@@ -73,6 +95,61 @@ class CinematicManager:
             print("🔄 Usando modo fallback...")
             self.iniciar_fallback()
             return True
+    
+    def _extrair_audio(self):
+        """Extrai o áudio do vídeo para reprodução"""
+        try:
+            # Primeiro tenta usar o arquivo de áudio separado se disponível
+            if hasattr(self, 'has_separate_audio') and self.has_separate_audio:
+                try:
+                    pygame.mixer.music.load(self.separate_audio_path)
+                    pygame.mixer.music.play()
+                    self.audio_extracted = True
+                    print(f"🔊 Reproduzindo áudio separado: {self.separate_audio_path}")
+                    return
+                except Exception as e:
+                    print(f"⚠️ Erro ao reproduzir áudio separado: {e}")
+            
+            # Tenta usar ffmpeg se estiver disponível
+            try:
+                # Cria um arquivo temporário para o áudio
+                temp_audio = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
+                temp_audio.close()
+                self.audio_path = temp_audio.name
+                
+                # Usa ffmpeg para extrair o áudio
+                cmd = [
+                    'ffmpeg', '-i', self.video_path, 
+                    '-vn', '-acodec', 'pcm_s16le', 
+                    '-ar', '44100', '-ac', '2', 
+                    '-y', self.audio_path
+                ]
+                
+                result = subprocess.run(cmd, capture_output=True, text=True)
+                
+                if result.returncode == 0 and os.path.exists(self.audio_path):
+                    self.audio_extracted = True
+                    print(f"🎵 Áudio extraído com ffmpeg: {self.audio_path}")
+                    
+                    # Carrega e reproduz o áudio
+                    pygame.mixer.music.load(self.audio_path)
+                    pygame.mixer.music.play()
+                    print("🔊 Reproduzindo áudio da cinemática")
+                    return
+                    
+            except FileNotFoundError:
+                print("⚠️ ffmpeg não encontrado")
+            
+            # Se não conseguiu reproduzir áudio
+            self.audio_extracted = False
+            print("🔇 Cinemática sem áudio - apenas vídeo")
+            print("💡 Para ter áudio:")
+            print("   1. Instale o ffmpeg, ou")
+            print("   2. Coloque um arquivo 'cinematic.wav' na pasta 'assets/videos/'")
+                
+        except Exception as e:
+            print(f"⚠️ Erro ao configurar áudio: {e}")
+            self.audio_extracted = False
     
     def iniciar_fallback(self):
         """Inicia o modo fallback (sem vídeo)"""
@@ -128,6 +205,11 @@ class CinematicManager:
     def pular_cinematic(self):
         """Pula a cinemática"""
         if self.playing:
+            # Para o áudio da cinemática
+            if self.audio_extracted and pygame.mixer.music.get_busy():
+                pygame.mixer.music.stop()
+                print("🛑 Parando áudio da cinemática")
+            
             if self.cap and self.cap.isOpened():
                 self.cap.release()
             
@@ -138,12 +220,29 @@ class CinematicManager:
     def finalizar_cinematic(self):
         """Marca a cinemática como finalizada"""
         if self.playing:
+            # Para o áudio da cinemática
+            if self.audio_extracted and pygame.mixer.music.get_busy():
+                pygame.mixer.music.stop()
+                print("🛑 Parando áudio da cinemática")
+            
             if self.cap and self.cap.isOpened():
                 self.cap.release()
             
             self.playing = False
             self.finished = True
             print("✅ Cinemática finalizada")
+            
+            # Limpa arquivo temporário de áudio
+            self._limpar_audio_temp()
+    
+    def _limpar_audio_temp(self):
+        """Remove arquivo temporário de áudio"""
+        if self.audio_path and os.path.exists(self.audio_path):
+            try:
+                os.remove(self.audio_path)
+                print(f"🗑️ Arquivo temporário removido: {self.audio_path}")
+            except Exception as e:
+                print(f"⚠️ Erro ao remover arquivo temporário: {e}")
     
     def obter_frame_atual(self):
         """Retorna o frame atual para desenhar"""

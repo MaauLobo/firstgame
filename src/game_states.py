@@ -69,6 +69,11 @@ class GameStateManager:
     def iniciar_cinematic(self):
         """Inicia a cinemática"""
         if self.cinematic_manager.esta_disponivel():
+            # Para a música de abertura antes de iniciar a cinemática
+            if pygame.mixer.music.get_busy():
+                pygame.mixer.music.stop()
+                print("🛑 Parando música de abertura para cinemática")
+            
             self.estado = CINEMATICA
             self.cinematic_timer = 0.0
             self.cinematic_manager.iniciar_cinematic()
